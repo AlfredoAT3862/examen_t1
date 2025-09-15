@@ -1,0 +1,26 @@
+/* Marca / header */
+.bg-brand {
+background: linear-gradient(90deg, #2b5876 0%, #4e4376 100%);
+}
+
+
+/* Tarjetas de habitación */
+.room-card {
+border: 1px solid rgba(0,0,0,0.06);
+border-radius: 1rem;
+transition: transform .12s ease, box-shadow .12s ease;
+}
+.room-card:hover {
+transform: translateY(-2px);
+box-shadow: 0 8px 26px rgba(0,0,0,0.08);
+}
+.room-badge {
+font-size: .75rem;
+}
+.stat {
+font-variant-numeric: tabular-nums;
+}
+
+
+/* Detalle */
+.card .fs-4 { line-height: 1.1; }
