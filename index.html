@@ -1,62 +1,521 @@
 <!DOCTYPE html>
-<title>Hospital Psiquiátrico – Monitoreo</title>
-<!-- Bootstrap 5 -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/styles.css">
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Psiquiátrico – Monitoreo</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <style>
+        :root {
+            --primary-color: #2b5876;
+            --secondary-color: #4e4376;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-bg: #f8f9fa;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7f9;
+            color: #333;
+        }
+        
+        .navbar {
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        }
+        
+        .room-card {
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin-bottom: 20px;
+            border: none;
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        .room-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .room-badge {
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        
+        .patient-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .metric-trend {
+            font-size: 0.85rem;
+        }
+        
+        .trend-up {
+            color: var(--danger-color);
+        }
+        
+        .trend-down {
+            color: var(--success-color);
+        }
+        
+        .trend-neutral {
+            color: #6c757d;
+        }
+        
+        .last-update {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+        
+        .progress-thin {
+            height: 6px;
+        }
+    </style>
 </head>
 <body>
-<!-- Header / Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-brand shadow-sm">
-<div class="container">
-<a class="navbar-brand fw-semibold" href="#">Hospital Psiquiátrico</a>
-</div>
-</nav>
+    <!-- Header / Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-brand shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-semibold" href="#">
+                <i class="fas fa-hospital me-2"></i>Hospital Psiquiátrico
+            </a>
+            <div class="navbar-text">
+                <i class="fas fa-clock me-1"></i> <span id="current-time">--:--:--</span>
+            </div>
+        </div>
+    </nav>
 
+    <!-- Main -->
+    <main class="py-4">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h1 class="h4 mb-1">Sistema de Monitoreo de Ansiedad</h1>
+                    <p class="text-muted small mb-0">Panel de control • Dispositivos IoT • Monitoreo en tiempo real</p>
+                </div>
+                <span class="badge bg-info">
+                    <i class="fas fa-sync-alt me-1"></i> Actualizando cada 2s
+                </span>
+            </div>
 
-<!-- Main -->
-<main class="py-4">
-<div class="container">
-<div class="d-flex align-items-center justify-content-between mb-3">
-<h1 class="h4 mb-0">Habitaciones en monitoreo</h1>
-<span class="text-muted small">Panel manual • Difusores y luces</span>
-</div>
+            <!-- Alertas del sistema -->
+            <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Sistema activo:</strong> Monitoreando <span id="patients-count">6</span> pacientes en tiempo real.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
 
+            <!-- Grid: 3 por fila en md+, 1 en xs -->
+            <div id="roomsGrid" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                <!-- Cards generadas dinámicamente por JS -->
+            </div>
 
-<!-- Grid: 3 por fila en md+, 1 en xs -->
-<div id="roomsGrid" class="row row-cols-1 row-cols-md-3 g-4">
-<!-- Cards generadas por JS -->
-</div>
+            <!-- Skeleton inicial -->
+            <div id="skeleton" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                <div class="col">
+                    <div class="card room-card placeholder-glow h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title placeholder col-6"></h5>
+                                <span class="placeholder room-badge col-3"></span>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="placeholder patient-avatar"></div>
+                                <div class="ms-3 placeholder col-7"></div>
+                            </div>
+                            <div class="placeholder col-12 mb-2"></div>
+                            <div class="placeholder col-10 mb-2"></div>
+                            <div class="placeholder col-8 mb-3"></div>
+                            <div class="progress progress-thin placeholder"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card room-card placeholder-glow h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title placeholder col-6"></h5>
+                                <span class="placeholder room-badge col-3"></span>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="placeholder patient-avatar"></div>
+                                <div class="ms-3 placeholder col-7"></div>
+                            </div>
+                            <div class="placeholder col-12 mb-2"></div>
+                            <div class="placeholder col-10 mb-2"></div>
+                            <div class="placeholder col-8 mb-3"></div>
+                            <div class="progress progress-thin placeholder"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card room-card placeholder-glow h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title placeholder col-6"></h5>
+                                <span class="placeholder room-badge col-3"></span>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="placeholder patient-avatar"></div>
+                                <div class="ms-3 placeholder col-7"></div>
+                            </div>
+                            <div class="placeholder col-12 mb-2"></div>
+                            <div class="placeholder col-10 mb-2"></div>
+                            <div class="placeholder col-8 mb-3"></div>
+                            <div class="progress progress-thin placeholder"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
 
+    <!-- Footer -->
+    <footer class="py-4 border-top mt-5">
+        <div class="container text-center small text-muted">
+            <i class="fas fa-brain me-1"></i> Sistema de Control de Ansiedad con IoT • Hospital Psiquiátrico © 2023
+        </div>
+    </footer>
 
-<!-- Skeleton inicial -->
-<div id="skeleton" class="row row-cols-1 row-cols-md-3 g-4 d-none">
-<div class="col" aria-hidden="true">
-<div class="card placeholder-glow h-100">
-<div class="card-body">
-<h5 class="card-title"><span class="placeholder col-6"></span></h5>
-<p class="card-text"><span class="placeholder col-7"></span></p>
-<p class="card-text"><span class="placeholder col-5"></span></p>
-<p class="card-text"><span class="placeholder col-8"></span></p>
-</div>
-</div>
-</div>
-</div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Datos de ejemplo para pacientes (simulados)
+        const patientsData = [
+            {
+                id: 1,
+                room: 101,
+                name: "Ana Rodríguez",
+                age: 34,
+                condition: "Trastorno de ansiedad generalizada",
+                avatar: "https://ui-avatars.com/api/?name=Ana+Rodríguez&background=2b5876&color=fff",
+                preferences: {
+                    light: "cálida",
+                    aroma: "lavanda"
+                },
+                metrics: {
+                    hr: 78,
+                    hrv: 58,
+                    temp: 35.8,
+                    sweat: 2.1
+                },
+                lastUpdate: new Date()
+            },
+            {
+                id: 2,
+                room: 102,
+                name: "Carlos Méndez",
+                age: 42,
+                condition: "Estrés postraumático",
+                avatar: "https://ui-avatars.com/api/?name=Carlos+Méndez&background=4e4376&color=fff",
+                preferences: {
+                    light: "azul",
+                    aroma: "eucalipto"
+                },
+                metrics: {
+                    hr: 92,
+                    hrv: 42,
+                    temp: 35.2,
+                    sweat: 4.8
+                },
+                lastUpdate: new Date()
+            },
+            {
+                id: 3,
+                room: 103,
+                name: "María González",
+                age: 29,
+                condition: "Crisis de pánico",
+                avatar: "https://ui-avatars.com/api/?name=María+González&background=28a745&color=fff",
+                preferences: {
+                    light: "violeta",
+                    aroma: "vainilla"
+                },
+                metrics: {
+                    hr: 85,
+                    hrv: 48,
+                    temp: 35.5,
+                    sweat: 3.2
+                },
+                lastUpdate: new Date()
+            },
+            {
+                id: 4,
+                room: 104,
+                name: "Javier López",
+                age: 51,
+                condition: "Ansiedad social",
+                avatar: "https://ui-avatars.com/api/?name=Javier+López&background=ffc107&color=000",
+                preferences: {
+                    light: "cálida",
+                    aroma: "menta"
+                },
+                metrics: {
+                    hr: 76,
+                    hrv: 62,
+                    temp: 36.1,
+                    sweat: 1.8
+                },
+                lastUpdate: new Date()
+            },
+            {
+                id: 5,
+                room: 105,
+                name: "Laura Sánchez",
+                age: 37,
+                condition: "Agorafobia",
+                avatar: "https://ui-avatars.com/api/?name=Laura+Sánchez&background=dc3545&color=fff",
+                preferences: {
+                    light: "neutra",
+                    aroma: "lavanda"
+                },
+                metrics: {
+                    hr: 104,
+                    hrv: 32,
+                    temp: 34.9,
+                    sweat: 6.7
+                },
+                lastUpdate: new Date()
+            },
+            {
+                id: 6,
+                room: 106,
+                name: "Roberto Díaz",
+                age: 45,
+                condition: "Trastorno obsesivo-compulsivo",
+                avatar: "https://ui-avatars.com/api/?name=Roberto+Díaz&background=17a2b8&color=fff",
+                preferences: {
+                    light: "cálida",
+                    aroma: "eucalipto"
+                },
+                metrics: {
+                    hr: 81,
+                    hrv: 53,
+                    temp: 35.7,
+                    sweat: 2.5
+                },
+                lastUpdate: new Date()
+            }
+        ];
 
+        // Algoritmo para calcular nivel de ansiedad
+        function calculateAnxietyLevel(hr, hrv, temp, sweat) {
+            let anxietyScore = 0;
+            
+            // Ritmo cardíaco (30%)
+            if (hr >= 100) anxietyScore += 30;
+            else if (hr >= 90) anxietyScore += 20;
+            else if (hr >= 80) anxietyScore += 10;
+            
+            // Variabilidad del ritmo cardíaco (30%)
+            if (hrv <= 35) anxietyScore += 30;
+            else if (hrv <= 45) anxietyScore += 20;
+            else if (hrv <= 55) anxietyScore += 10;
+            
+            // Temperatura de la piel (20%)
+            if (temp <= 34.5) anxietyScore += 20;
+            else if (temp <= 35.0) anxietyScore += 15;
+            else if (temp <= 35.5) anxietyScore += 10;
+            
+            // Sudoración (20%)
+            if (sweat >= 6.0) anxietyScore += 20;
+            else if (sweat >= 4.5) anxietyScore += 15;
+            else if (sweat >= 3.0) anxietyScore += 10;
+            
+            return Math.min(100, Math.max(0, Math.round(anxietyScore)));
+        }
 
-</div>
-</main>
+        // Determinar el nivel de ansiedad basado en el puntaje
+        function getAnxietyLevel(score) {
+            if (score >= 70) return { level: "Alta", class: "danger", icon: "fa-exclamation-triangle" };
+            if (score >= 40) return { level: "Moderada", class: "warning", icon: "fa-exclamation-circle" };
+            if (score >= 20) return { level: "Leve", class: "info", icon: "fa-info-circle" };
+            return { level: "Estable", class: "success", icon: "fa-check-circle" };
+        }
 
+        // Generar mensaje dinámico según el nivel de ansiedad
+        function getStatusMessage(anxietyLevel, patient) {
+            const messages = {
+                danger: [
+                    `Intervención necesaria en habitación ${patient.room}`,
+                    `${patient.name} requiere atención inmediata`,
+                    `Niveles críticos detectados en ${patient.room}`
+                ],
+                warning: [
+                    `${patient.name} muestra signos de ansiedad moderada`,
+                    `Monitoreo intensivo recomendado en ${patient.room}`,
+                    `Ansiedad moderada detectada en ${patient.name}`
+                ],
+                info: [
+                    `${patient.name} está estable pero requiere observación`,
+                    `Leve aumento de ansiedad en ${patient.room}`,
+                    `Niveles dentro de parámetros aceptables`
+                ],
+                success: [
+                    `${patient.name} se encuentra estable y tranquilo/a`,
+                    `Habitación ${patient.room} con niveles normales`,
+                    `Paciente en estado óptimo de relajación`
+                ]
+            };
+            
+            const randomIndex = Math.floor(Math.random() * messages[anxietyLevel.class].length);
+            return messages[anxietyLevel.class][randomIndex];
+        }
 
-<!-- Footer -->
-<footer class="py-4 border-top">
-<div class="container text-center small text-muted">
-Proyecto demo IoT (control manual) • Bootstrap 5
-</div>
-</footer>
+        // Obtener tendencia (mejorando, empeorando, estable)
+        function getTrend(previousScore, currentScore) {
+            if (currentScore > previousScore + 5) return { direction: "up", text: "Aumentando" };
+            if (currentScore < previousScore - 5) return { direction: "down", text: "Disminuyendo" };
+            return { direction: "neutral", text: "Estable" };
+        }
 
+        // Formatear la última actualización
+        function formatLastUpdate(date) {
+            const now = new Date();
+            const diffMs = now - new Date(date);
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return "Hace unos segundos";
+            if (diffMins === 1) return "Hace 1 minuto";
+            if (diffMins < 60) return `Hace ${diffMins} minutos`;
+            
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours === 1) return "Hace 1 hora";
+            return `Hace ${diffHours} horas`;
+        }
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/api.js"></script>
-<script src="assets/js/app.js"></script>
+        // Generar HTML para cada tarjeta de habitación
+        function generateRoomCard(patient) {
+            const anxietyScore = calculateAnxietyLevel(
+                patient.metrics.hr, 
+                patient.metrics.hrv, 
+                patient.metrics.temp, 
+                patient.metrics.sweat
+            );
+            
+            const anxietyLevel = getAnxietyLevel(anxietyScore);
+            const statusMessage = getStatusMessage(anxietyLevel, patient);
+            
+            // Simular tendencia (en una app real, compararíamos con valores anteriores)
+            const previousScore = Math.max(0, anxietyScore - (Math.random() > 0.5 ? 10 : -10));
+            const trend = getTrend(previousScore, anxietyScore);
+            
+            return `
+                <div class="col">
+                    <a href="room.html?room=${patient.id}" class="text-decoration-none">
+                        <div class="card room-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h5 class="card-title mb-0">Habitación ${patient.room}</h5>
+                                    <span class="badge room-badge bg-${anxietyLevel.class}">
+                                        <i class="fas ${anxietyLevel.icon} me-1"></i> ${anxietyLevel.level}
+                                    </span>
+                                </div>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="${patient.avatar}" alt="${patient.name}" class="patient-avatar">
+                                    <div class="ms-3">
+                                        <h6 class="mb-0">${patient.name}</h6>
+                                        <small class="text-muted">${patient.age} años • ${patient.condition}</small>
+                                    </div>
+                                </div>
+                                
+                                <p class="card-text mb-3">${statusMessage}</p>
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="text-muted">Nivel de ansiedad</small>
+                                        <small class="fw-bold">${anxietyScore}%</small>
+                                    </div>
+                                    <div class="progress progress-thin">
+                                        <div class="progress-bar bg-${anxietyLevel.class}" 
+                                             role="progressbar" style="width: ${anxietyScore}%" 
+                                             aria-valuenow="${anxietyScore}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <div>
+                                        <i class="fas fa-heart me-1"></i> ${patient.metrics.hr} bpm
+                                    </div>
+                                    <div>
+                                        <i class="fas fa-wave-square me-1"></i> ${patient.metrics.hrv} ms
+                                    </div>
+                                    <div class="metric-trend ${trend.direction === 'up' ? 'trend-up' : trend.direction === 'down' ? 'trend-down' : 'trend-neutral'}">
+                                        <i class="fas ${trend.direction === 'up' ? 'fa-arrow-up' : trend.direction === 'down' ? 'fa-arrow-down' : 'fa-minus'} me-1"></i> ${trend.text}
+                                    </div>
+                                </div>
+                                
+                                <div class="last-update mt-2">
+                                    <i class="fas fa-clock me-1"></i> ${formatLastUpdate(patient.lastUpdate)}
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            `;
+        }
+
+        // Actualizar la hora actual
+        function updateCurrentTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('current-time').textContent = timeString;
+        }
+
+        // Simular actualización de datos
+        function updatePatientsData() {
+            patientsData.forEach(patient => {
+                // Simular cambios en las métricas
+                patient.metrics.hr = Math.max(60, Math.min(120, patient.metrics.hr + (Math.random() * 6 - 3)));
+                patient.metrics.hrv = Math.max(20, Math.min(100, patient.metrics.hrv + (Math.random() * 8 - 4)));
+                patient.metrics.temp = (patient.metrics.temp + (Math.random() * 0.4 - 0.2)).toFixed(1);
+                patient.metrics.sweat = (patient.metrics.sweat + (Math.random() * 1.2 - 0.6)).toFixed(1);
+                patient.lastUpdate = new Date();
+            });
+        }
+
+        // Cargar y mostrar las habitaciones
+        function loadRooms() {
+            const grid = document.getElementById('roomsGrid');
+            const skeleton = document.getElementById('skeleton');
+            
+            // Ocultar skeleton y mostrar datos
+            skeleton.classList.add('d-none');
+            
+            // Generar HTML para todas las habitaciones
+            grid.innerHTML = patientsData.map(patient => generateRoomCard(patient)).join('');
+            
+            // Actualizar contador de pacientes
+            document.getElementById('patients-count').textContent = patientsData.length;
+            
+            // Actualizar la hora
+            updateCurrentTime();
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar inicialmente
+            loadRooms();
+            
+            // Actualizar cada 2 segundos
+            setInterval(function() {
+                updatePatientsData();
+                loadRooms();
+            }, 2000);
+        });
+    </script>
 </body>
 </html>

@@ -24,3 +24,52 @@ font-variant-numeric: tabular-nums;
 
 /* Detalle */
 .card .fs-4 { line-height: 1.1; }
+
+
+
+/* Mejoras para la página de control */
+.card {
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 1rem;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* Mejoras para los controles */
+.form-range::-webkit-slider-thumb {
+    background: #2b5876;
+}
+
+.form-range::-moz-range-thumb {
+    background: #2b5876;
+}
+
+/* Toast personalizado */
+.toast {
+    z-index: 9999;
+}
+
+/* Estados de dispositivos */
+.device-on {
+    color: #198754;
+    font-weight: 600;
+}
+
+.device-off {
+    color: #6c757d;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .fs-4 {
+        font-size: 1.2rem !important;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+}
