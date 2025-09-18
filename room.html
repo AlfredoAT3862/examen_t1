@@ -1,756 +1,176 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Avanzado de Detección de Ansiedad</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #2b5876;
-            --secondary-color: #4e4376;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --light-bg: #f8f9fa;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f7f9;
-            color: #333;
-        }
-        
-        .navbar {
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-        }
-        
-        .card {
-            border-radius: 12px;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            margin-bottom: 20px;
-            border: none;
-            overflow: hidden;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
-        }
-        
-        .card-header {
-            background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
-            border-bottom: 1px solid #dee2e6;
-            font-weight: 600;
-            padding: 15px 20px;
-        }
-        
-        .metric-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin: 10px 0;
-        }
-        
-        .metric-unit {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-        
-        .status-badge {
-            font-size: 0.85rem;
-            padding: 6px 12px;
-            border-radius: 20px;
-        }
-        
-        .device-card {
-            cursor: pointer;
-        }
-        
-        .device-card.active {
-            border: 2px solid var(--primary-color);
-        }
-        
-        .control-panel {
-            background-color: #fff;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-        }
-        
-        .btn-control {
-            padding: 12px 25px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .last-updated {
-            font-size: 0.85rem;
-            color: #6c757d;
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .heart-animation {
-            animation: pulse 1.5s infinite;
-            color: var(--danger-color);
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        
-        .sweat-animation {
-            animation: drip 3s infinite;
-            color: #17a2b8;
-        }
-        
-        @keyframes drip {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        .section-title {
-            border-left: 4px solid var(--primary-color);
-            padding-left: 12px;
-            margin: 25px 0 20px;
-        }
-        
-        .threshold-indicator {
-            height: 5px;
-            background-color: #e9ecef;
-            border-radius: 3px;
-            margin: 10px 0;
-            position: relative;
-        }
-        
-        .threshold-fill {
-            height: 100%;
-            border-radius: 3px;
-            position: absolute;
-        }
-        
-        .threshold-marker {
-            position: absolute;
-            width: 3px;
-            height: 15px;
-            background-color: #6c757d;
-            top: -5px;
-        }
-        
-        .threshold-label {
-            font-size: 0.7rem;
-            color: #6c757d;
-            position: absolute;
-            top: -20px;
-            transform: translateX(-50%);
-        }
-    </style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Detalle de Habitación</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root{--primary-color:#2b5876;--secondary-color:#4e4376;--danger:#dc3545}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f7f9}
+    .navbar{background:linear-gradient(90deg,var(--primary-color),var(--secondary-color))}
+    .card{border-radius:12px;box-shadow:0 6px 15px rgba(0,0,0,.08);border:none}
+    .status-badge{font-size:.85rem;padding:6px 12px;border-radius:20px}
+    .threshold{height:6px;background:#e9ecef;border-radius:3px}
+    .door-chip{font-size:.8rem;border-radius:12px;padding:2px 8px}
+    .door-open{background:#e6ffed;color:#0f5132;border:1px solid #badbcc}
+    .door-closed{background:#fff3cd;color:#664d03;border:1px solid #ffecb5}
+  </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-brain me-2"></i>Sistema Avanzado de Detección de Ansiedad
-            </a>
-            <div class="d-flex">
-                <span class="navbar-text me-3">
-                    <i class="fas fa-clock me-1"></i> <span id="current-time">--:--:--</span>
-                </span>
-                <span class="navbar-text">
-                    Actualización: <span id="refresh-status">Activa</span>
-                </span>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container py-4">
-        <!-- Header -->
-        <div class="row mb-4">
-            <div class="col-md-8">
-                <h2 class="section-title">Monitoreo en Tiempo Real</h2>
-                <p class="text-muted">Sistema de detección de ansiedad basado en métricas fisiológicas</p>
-            </div>
-            <div class="col-md-4 text-md-end">
-                <div class="btn-group">
-                    <button class="btn btn-outline-primary" id="refresh-btn">
-                        <i class="fas fa-sync-alt me-1"></i> Actualizar
-                    </button>
-                    <a href="#" class="btn btn-outline-secondary">
-                        <i class="fas fa-list me-1"></i> Ver Todos
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Alertas -->
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>Monitor activo:</strong> El sistema se actualiza automáticamente cada 2 segundos.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-
-        <!-- Main Content -->
-        <div class="row">
-            <!-- Métricas de la pulsera -->
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-heartbeat me-2"></i>Métricas de la Pulsera Inteligente</span>
-                        <span class="status-badge bg-success">Conectado</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3 text-center mb-4">
-                                <div class="text-primary">
-                                    <i class="fas fa-heart fa-2x heart-animation"></i>
-                                </div>
-                                <div class="metric-value" id="hr-value">78</div>
-                                <div class="metric-unit">Ritmo Cardíaco (bpm)</div>
-                                <div class="threshold-indicator">
-                                    <div class="threshold-fill" id="hr-threshold" style="width: 0%; background-color: #28a745;"></div>
-                                    <div class="threshold-marker" style="left: 90%;"></div>
-                                    <div class="threshold-label" style="left: 90%;">Ansiedad</div>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-success" id="hr-status">Normal</span>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-3 text-center mb-4">
-                                <div class="text-info">
-                                    <i class="fas fa-wave-square fa-2x"></i>
-                                </div>
-                                <div class="metric-value" id="hrv-value">58</div>
-                                <div class="metric-unit">Variabilidad (ms)</div>
-                                <div class="threshold-indicator">
-                                    <div class="threshold-fill" id="hrv-threshold" style="width: 0%; background-color: #28a745;"></div>
-                                    <div class="threshold-marker" style="left: 35%;"></div>
-                                    <div class="threshold-label" style="left: 35%;">Ansiedad</div>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-success" id="hrv-status">Estable</span>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-3 text-center mb-4">
-                                <div class="text-warning">
-                                    <i class="fas fa-thermometer-half fa-2x"></i>
-                                </div>
-                                <div class="metric-value" id="temp-value">35.8</div>
-                                <div class="metric-unit">Temperatura (°C)</div>
-                                <div class="threshold-indicator">
-                                    <div class="threshold-fill" id="temp-threshold" style="width: 0%; background-color: #28a745;"></div>
-                                    <div class="threshold-marker" style="left: 35%;"></div>
-                                    <div class="threshold-label" style="left: 35%;">Ansiedad</div>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-success" id="temp-status">Normal</span>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-3 text-center mb-4">
-                                <div class="text-info">
-                                    <i class="fas fa-tint fa-2x sweat-animation"></i>
-                                </div>
-                                <div class="metric-value" id="sweat-value">2.1</div>
-                                <div class="metric-unit">Sudoración (µS)</div>
-                                <div class="threshold-indicator">
-                                    <div class="threshold-fill" id="sweat-threshold" style="width: 0%; background-color: #28a745;"></div>
-                                    <div class="threshold-marker" style="left: 70%;"></div>
-                                    <div class="threshold-label" style="left: 70%;">Ansiedad</div>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-success" id="sweat-status">Baja</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row mt-3">
-                            <div class="col">
-                                <h5>Nivel de Ansiedad General</h5>
-                                <div class="progress mb-2" style="height: 20px;">
-                                    <div class="progress-bar bg-success" role="progressbar" style="width: 25%;" 
-                                         aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <small>Bajo</small>
-                                    <small id="anxiety-level">Leve</small>
-                                    <small>Alto</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <div class="last-updated">
-                            <i class="fas fa-clock me-1"></i> Última actualización: <span id="last-updated-time">--:--:--</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Dispositivos de Control -->
-                <h3 class="section-title">Dispositivos de Control</h3>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="card device-card active" id="light-device">
-                            <div class="card-header">
-                                <i class="fas fa-lightbulb me-2"></i>Lámpara de Ambiente
-                            </div>
-                            <div class="card-body">
-                                <div class="text-center mb-3">
-                                    <i class="fas fa-lightbulb fa-3x text-warning"></i>
-                                </div>
-                                <h5 class="text-center">Estado: <span class="text-success" id="light-status">Activada</span></h5>
-                                <p class="text-center text-muted">Tipo: <span id="light-type">Luz Cálida</span></p>
-                                
-                                <div class="d-grid gap-2">
-                                    <button class="btn btn-outline-danger" id="light-toggle">
-                                        <i class="fas fa-power-off me-1"></i> Desactivar
-                                    </button>
-                                </div>
-                                
-                                <div class="mt-3">
-                                    <label class="form-label">Cambiar color</label>
-                                    <select class="form-select" id="light-selector">
-                                        <option value="calida" selected>Luz Cálida (Relajante)</option>
-                                        <option value="fria">Luz Fría (Energizante)</option>
-                                        <option value="azul">Luz Azul (Concentración)</option>
-                                        <option value="violeta">Luz Violeta (Meditación)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card device-card" id="diffuser-device">
-                            <div class="card-header">
-                                <i class="fas fa-wind me-2"></i>Difusor de Aromas
-                            </div>
-                            <div class="card-body">
-                                <div class="text-center mb-3">
-                                    <i class="fas fa-wind fa-3x text-info"></i>
-                                </div>
-                                <h5 class="text-center">Estado: <span class="text-secondary" id="diffuser-status">Inactivo</span></h5>
-                                <p class="text-center text-muted">Aroma: <span id="diffuser-scent">No seleccionado</span></p>
-                                
-                                <div class="d-grid gap-2">
-                                    <button class="btn btn-outline-success" id="diffuser-toggle">
-                                        <i class="fas fa-power-off me-1"></i> Activar
-                                    </button>
-                                </div>
-                                
-                                <div class="mt-3">
-                                    <label class="form-label">Seleccionar aroma</label>
-                                    <select class="form-select" id="diffuser-selector">
-                                        <option value="" selected>Seleccione un aroma</option>
-                                        <option value="lavanda">Lavanda (Relajante)</option>
-                                        <option value="menta">Menta (Energizante)</option>
-                                        <option value="vainilla">Vainilla (Confort)</option>
-                                        <option value="eucalipto">Eucalipto (Descongestivo)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Panel de Información -->
-            <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-info-circle me-2"></i>Información del Paciente
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center mb-3">
-                            <i class="fas fa-user-circle fa-4x text-secondary"></i>
-                        </div>
-                        <h5 class="text-center">Habitación 101</h5>
-                        <p class="text-center text-muted">ID: P-7824</p>
-                        
-                        <div class="mt-4">
-                            <h6>Preferencias:</h6>
-                            <ul class="list-group list-group-flush mb-3">
-                                <li class="list-group-item">
-                                    <i class="fas fa-lightbulb text-warning me-2"></i>
-                                    Luz preferida: <strong>Cálida</strong>
-                                </li>
-                                <li class="list-group-item">
-                                    <i class="fas fa-wind text-info me-2"></i>
-                                    Aroma preferido: <strong>Lavanda</strong>
-                                </li>
-                            </ul>
-                            
-                            <h6>Estado Actual:</h6>
-                            <div class="alert alert-success" id="overall-status">
-                                <i class="fas fa-check-circle me-1"></i> Estabilidad dentro de parámetros normales
-                            </div>
-                            
-                            <h6>Recomendaciones:</h6>
-                            <ul class="list-group list-group-flush" id="recommendations">
-                                <li class="list-group-item">Mantener luz cálida activada</li>
-                                <li class="list-group-item">Monitorizar cada 15 minutos</li>
-                                <li class="list-group-item">Considerar activar difusor con lavanda</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <i class="fas fa-history me-2"></i>Historial Reciente
-                    </div>
-                    <div class="card-body">
-                        <div class="timeline" id="event-timeline">
-                            <div class="timeline-item">
-                                <div class="timeline-content">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Ritmo cardíaco aumentó</span>
-                                        <small class="text-muted">Hace 2 min</small>
-                                    </div>
-                                    <small class="text-muted">De 72 a 78 bpm</small>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-content">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Luz cálida activada</span>
-                                        <small class="text-muted">Hace 5 min</small>
-                                    </div>
-                                    <small class="text-muted">Por el terapeuta</small>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-content">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Ingreso al sistema</span>
-                                        <small class="text-muted">Hace 12 min</small>
-                                    </div>
-                                    <small class="text-muted">Paciente en habitación</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <nav class="navbar navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="index.html"><i class="fas fa-brain me-2"></i>Monitoreo</a>
+      <span class="navbar-text"><i class="fas fa-clock me-1"></i><span id="current-time">--:--:--</span></span>
     </div>
+  </nav>
 
-    <footer class="bg-light mt-5 py-4 border-top">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <p class="mb-0">Sistema Avanzado de Detección de Ansiedad con IoT</p>
-                    <small class="text-muted">Hospital Psiquiátrico &copy; 2023</small>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <small class="text-muted">Actualizado cada 2 segundos</small>
-                </div>
+  <div class="container py-4">
+    <div id="roomError" class="alert alert-danger d-none">No se pudo cargar la habitación.</div>
+
+    <div class="row">
+      <!-- Métricas -->
+      <div class="col-lg-8">
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Habitación <span id="roomNumber">—</span></strong>
+            <span id="sevBadge" class="badge bg-secondary">—</span>
+          </div>
+          <div class="card-body">
+            <div class="row text-center">
+              <div class="col-md-3 mb-3">
+                <div class="text-danger"><i class="fas fa-heart fa-lg"></i></div>
+                <div class="fs-3 fw-bold" id="valHR">—</div>
+                <div class="text-muted">HR (bpm)</div>
+                <div class="threshold mt-2"><div id="thrHR" style="height:100%;width:0%"></div></div>
+              </div>
+              <div class="col-md-3 mb-3">
+                <div class="text-info"><i class="fas fa-wave-square fa-lg"></i></div>
+                <div class="fs-3 fw-bold" id="valHRV">—</div>
+                <div class="text-muted">HRV (ms)</div>
+                <div class="threshold mt-2"><div id="thrHRV" style="height:100%;width:0%"></div></div>
+              </div>
+              <div class="col-md-3 mb-3">
+                <div class="text-warning"><i class="fas fa-temperature-low fa-lg"></i></div>
+                <div class="fs-3 fw-bold" id="valSkin">—</div>
+                <div class="text-muted">Temp Piel (°C)</div>
+                <div class="threshold mt-2"><div id="thrSkin" style="height:100%;width:0%"></div></div>
+              </div>
+              <div class="col-md-3 mb-3">
+                <div class="text-primary"><i class="fas fa-tint fa-lg"></i></div>
+                <div class="fs-3 fw-bold" id="valEDA">—</div>
+                <div class="text-muted">Sudoración (µS)</div>
+                <div class="threshold mt-2"><div id="thrEDA" style="height:100%;width:0%"></div></div>
+              </div>
             </div>
-        </div>
-    </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Algoritmo mejorado para detección de ansiedad
-        function calculateAnxietyLevel(hr, hrv, temp, sweat, lightActive, diffuserActive, lightType, diffuserScent) {
-            let anxietyScore = 0;
-            
-            // Ponderación de métricas basada en investigación
-            // Ritmo cardíaco (30%)
-            if (hr >= 100) anxietyScore += 30;
-            else if (hr >= 90) anxietyScore += 20;
-            else if (hr >= 80) anxietyScore += 10;
-            
-            // Variabilidad del ritmo cardíaco (30%)
-            if (hrv <= 35) anxietyScore += 30;
-            else if (hrv <= 45) anxietyScore += 20;
-            else if (hrv <= 55) anxietyScore += 10;
-            
-            // Temperatura de la piel (20%)
-            if (temp <= 34.5) anxietyScore += 20;
-            else if (temp <= 35.0) anxietyScore += 15;
-            else if (temp <= 35.5) anxietyScore += 10;
-            
-            // Sudoración (20%)
-            if (sweat >= 6.0) anxietyScore += 20;
-            else if (sweat >= 4.5) anxietyScore += 15;
-            else if (sweat >= 3.0) anxietyScore += 10;
-            
-            // Efecto de dispositivos activos (reducción de ansiedad)
-            if (lightActive) {
-                // Diferentes luces tienen diferentes efectos
-                if (lightType === 'calida') anxietyScore *= 0.7;  // Reducción del 30%
-                else if (lightType === 'violeta') anxietyScore *= 0.8; // Reducción del 20%
-                else if (lightType === 'azul') anxietyScore *= 0.9; // Reducción del 10%
-            }
-            
-            if (diffuserActive) {
-                // Diferentes aromas tienen diferentes efectos
-                if (diffuserScent === 'lavanda') anxietyScore *= 0.6;  // Reducción del 40%
-                else if (diffuserScent === 'vainilla') anxietyScore *= 0.7; // Reducción del 30%
-                else if (diffuserScent === 'eucalipto') anxietyScore *= 0.8; // Reducción del 20%
-            }
-            
-            // Si ambos dispositivos están activos con las configuraciones óptimas
-            if (lightActive && lightType === 'calida' && diffuserActive && diffuserScent === 'lavanda') {
-                anxietyScore *= 0.5;  // Reducción adicional del 50%
-            }
-            
-            return Math.min(100, Math.max(0, Math.round(anxietyScore)));
-        }
-        
-        // Función para determinar el nivel de ansiedad basado en el puntaje
-        function getAnxietyLevel(score) {
-            if (score >= 70) return { level: "Alta", class: "danger" };
-            if (score >= 40) return { level: "Moderada", class: "warning" };
-            if (score >= 20) return { level: "Leve", class: "info" };
-            return { level: "Mínima", class: "success" };
-        }
-        
-        // Función para actualizar la hora actual
-        function updateCurrentTime() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString();
-            document.getElementById('current-time').textContent = timeString;
-            document.getElementById('last-updated-time').textContent = timeString;
-        }
-        
-        // Función para simular cambios en los valores de las métricas
-        function updateMetrics() {
-            // Obtener estado de los dispositivos
-            const lightActive = document.getElementById('light-device').classList.contains('active');
-            const diffuserActive = document.getElementById('diffuser-device').classList.contains('active');
-            const lightType = document.getElementById('light-selector').value;
-            const diffuserScent = document.getElementById('diffuser-selector').value;
-            
-            // Simular valores basados en si los dispositivos están activos
-            let hrBase = 75;
-            let hrvBase = 50;
-            let tempBase = 35.5;
-            let sweatBase = 2.0;
-            
-            // Efecto de dispositivos en las métricas fisiológicas
-            if (lightActive) {
-                if (lightType === 'calida') {
-                    hrBase -= 5;
-                    hrvBase += 10;
-                    tempBase += 0.3;
-                    sweatBase -= 0.5;
-                } else if (lightType === 'violeta') {
-                    hrBase -= 3;
-                    hrvBase += 7;
-                    tempBase += 0.2;
-                    sweatBase -= 0.3;
-                }
-            }
-            
-            if (diffuserActive) {
-                if (diffuserScent === 'lavanda') {
-                    hrBase -= 7;
-                    hrvBase += 12;
-                    tempBase += 0.4;
-                    sweatBase -= 0.7;
-                } else if (diffuserScent === 'vainilla') {
-                    hrBase -= 4;
-                    hrvBase += 8;
-                    tempBase += 0.3;
-                    sweatBase -= 0.4;
-                }
-            }
-            
-            // Agregar variabilidad aleatoria
-            const hrValue = Math.max(60, Math.min(120, hrBase + Math.floor(Math.random() * 10) - 5));
-            const hrvValue = Math.max(20, Math.min(100, hrvBase + Math.floor(Math.random() * 8) - 4));
-            const tempValue = (tempBase + (Math.random() * 0.6 - 0.3)).toFixed(1);
-            const sweatValue = (sweatBase + (Math.random() * 1.5 - 0.7)).toFixed(1);
-            
-            // Calcular nivel de ansiedad
-            const anxietyScore = calculateAnxietyLevel(
-                hrValue, hrvValue, tempValue, sweatValue, 
-                lightActive, diffuserActive, lightType, diffuserScent
-            );
-            
-            const anxietyLevel = getAnxietyLevel(anxietyScore);
-            
-            // Actualizar los valores en la interfaz
-            document.getElementById('hr-value').textContent = hrValue;
-            document.getElementById('hrv-value').textContent = hrvValue;
-            document.getElementById('temp-value').textContent = tempValue;
-            document.getElementById('sweat-value').textContent = sweatValue;
-            
-            // Actualizar las barras de umbral
-            document.getElementById('hr-threshold').style.width = Math.min(100, (hrValue - 60) / 0.6) + '%';
-            document.getElementById('hrv-threshold').style.width = Math.max(0, 100 - (hrvValue / 100 * 100)) + '%';
-            document.getElementById('temp-threshold').style.width = Math.max(0, 100 - ((tempValue - 33) / 3 * 100)) + '%';
-            document.getElementById('sweat-threshold').style.width = Math.min(100, (sweatValue / 8 * 100)) + '%';
-            
-            // Actualizar colores de las barras según los valores
-            document.getElementById('hr-threshold').style.backgroundColor = hrValue >= 90 ? '#dc3545' : (hrValue >= 80 ? '#ffc107' : '#28a745');
-            document.getElementById('hrv-threshold').style.backgroundColor = hrvValue <= 45 ? '#dc3545' : (hrvValue <= 55 ? '#ffc107' : '#28a745');
-            document.getElementById('temp-threshold').style.backgroundColor = tempValue <= 35.0 ? '#dc3545' : (tempValue <= 35.5 ? '#ffc107' : '#28a745');
-            document.getElementById('sweat-threshold').style.backgroundColor = sweatValue >= 4.5 ? '#dc3545' : (sweatValue >= 3.0 ? '#ffc107' : '#28a745');
-            
-            // Actualizar estados individuales
-            document.getElementById('hr-status').textContent = hrValue >= 90 ? 'Alto' : (hrValue >= 80 ? 'Moderado' : 'Normal');
-            document.getElementById('hr-status').className = 'badge ' + (hrValue >= 90 ? 'bg-danger' : (hrValue >= 80 ? 'bg-warning' : 'bg-success'));
-            
-            document.getElementById('hrv-status').textContent = hrvValue <= 45 ? 'Bajo' : (hrvValue <= 55 ? 'Moderado' : 'Estable');
-            document.getElementById('hrv-status').className = 'badge ' + (hrvValue <= 45 ? 'bg-danger' : (hrvValue <= 55 ? 'bg-warning' : 'bg-success'));
-            
-            document.getElementById('temp-status').textContent = tempValue <= 35.0 ? 'Baja' : (tempValue <= 35.5 ? 'Moderada' : 'Normal');
-            document.getElementById('temp-status').className = 'badge ' + (tempValue <= 35.0 ? 'bg-danger' : (tempValue <= 35.5 ? 'bg-warning' : 'bg-success'));
-            
-            document.getElementById('sweat-status').textContent = sweatValue >= 4.5 ? 'Alta' : (sweatValue >= 3.0 ? 'Moderada' : 'Baja');
-            document.getElementById('sweat-status').className = 'badge ' + (sweatValue >= 4.5 ? 'bg-danger' : (sweatValue >= 3.0 ? 'bg-warning' : 'bg-success'));
-            
-            // Actualizar barra de ansiedad general
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.style.width = anxietyScore + '%';
-            progressBar.className = 'progress-bar bg-' + anxietyLevel.class;
-            document.getElementById('anxiety-level').textContent = anxietyLevel.level;
-            
-            // Actualizar estado general
-            const overallStatus = document.getElementById('overall-status');
-            overallStatus.className = 'alert alert-' + anxietyLevel.class;
-            overallStatus.innerHTML = '<i class="fas ' + 
-                (anxietyLevel.class === 'success' ? 'fa-check-circle' : 
-                 anxietyLevel.class === 'warning' ? 'fa-exclamation-triangle' : 'fa-exclamation-circle') + 
-                ' me-1"></i> Nivel de ansiedad: ' + anxietyLevel.level;
-            
-            // Actualizar recomendaciones
-            const recommendations = document.getElementById('recommendations');
-            recommendations.innerHTML = '';
-            
-            if (anxietyScore >= 40) {
-                recommendations.innerHTML += '<li class="list-group-item">Activar luz cálida</li>';
-                recommendations.innerHTML += '<li class="list-group-item">Activar difusor con lavanda</li>';
-                
-                if (hrValue >= 90) {
-                    recommendations.innerHTML += '<li class="list-group-item">Practicar respiración profunda</li>';
-                }
-                
-                if (sweatValue >= 4.5) {
-                    recommendations.innerHTML += '<li class="list-group-item">Ajustar temperatura ambiente</li>';
-                }
-            } else {
-                recommendations.innerHTML += '<li class="list-group-item">Continuar monitoreo</li>';
-                recommendations.innerHTML += '<li class="list-group-item">Mantener ambiente relajante</li>';
-            }
-            
-            // Actualizar la hora
-            updateCurrentTime();
-            
-            // Registrar evento si hay cambios significativos
-            if (anxietyScore >= 40 && !window.lastAnxietyEvent) {
-                addEventToTimeline('Aumento significativo en los niveles de ansiedad');
-                window.lastAnxietyEvent = true;
-            } else if (anxietyScore < 40 && window.lastAnxietyEvent) {
-                addEventToTimeline('Ansiedad regresó a niveles normales');
-                window.lastAnxietyEvent = false;
-            }
-        }
-        
-        // Función para agregar eventos al timeline
-        function addEventToTimeline(eventText) {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString();
-            
-            const timeline = document.getElementById('event-timeline');
-            const newEvent = document.createElement('div');
-            newEvent.className = 'timeline-item';
-            newEvent.innerHTML = `
-                <div class="timeline-content">
-                    <div class="d-flex justify-content-between">
-                        <span>${eventText}</span>
-                        <small class="text-muted">${timeString}</small>
-                    </div>
+            <div class="mt-3">
+              <div class="d-flex justify-content-between">
+                <span>Nivel de ansiedad</span>
+                <strong id="anxScore">0%</strong>
+              </div>
+              <div class="progress" style="height:20px">
+                <div id="anxBar" class="progress-bar bg-success" style="width:0%"></div>
+              </div>
+              <div class="mt-2 small text-muted">Última lectura: <span id="valDate">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <h5 class="mb-3">Dispositivos</h5>
+        <div class="row">
+          <!-- Lámpara -->
+          <div class="col-md-4">
+            <div class="card h-100" id="lightCard">
+              <div class="card-header"><i class="fas fa-lightbulb me-2"></i>Lámpara</div>
+              <div class="card-body">
+                <p>Tipo de luz: <strong id="valTipLuz">—</strong></p>
+                <div class="mb-2">
+                  <select id="selTipLuz" class="form-select">
+                    <option value="apagada">Apagada</option>
+                    <option value="calida">Cálida</option>
+                    <option value="fria">Fría</option>
+                    <option value="azul">Azul</option>
+                    <option value="violeta">Violeta</option>
+                  </select>
                 </div>
-            `;
-            
-            timeline.insertBefore(newEvent, timeline.firstChild);
-            
-            // Mantener solo los últimos 5 eventos
-            while (timeline.children.length > 5) {
-                timeline.removeChild(timeline.lastChild);
-            }
-        }
-        
-        // Inicializar y establecer intervalos de actualización
-        document.addEventListener('DOMContentLoaded', function() {
-            updateCurrentTime();
-            updateMetrics(); // Actualizar inmediatamente al cargar
-            
-            // Actualizar cada 2 segundos (2000 ms)
-            setInterval(updateMetrics, 2000);
-            
-            // Configurar el botón de actualización manual
-            document.getElementById('refresh-btn').addEventListener('click', updateMetrics);
-            
-            // Configurar toggle para dispositivos
-            document.getElementById('light-toggle').addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleDevice('light');
-            });
-            
-            document.getElementById('diffuser-toggle').addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleDevice('diffuser');
-            });
-            
-            // Configurar selectores de dispositivos
-            document.getElementById('light-selector').addEventListener('change', function() {
-                document.getElementById('light-type').textContent = this.options[this.selectedIndex].text;
-                updateMetrics();
-            });
-            
-            document.getElementById('diffuser-selector').addEventListener('change', function() {
-                if (this.value) {
-                    document.getElementById('diffuser-scent').textContent = this.options[this.selectedIndex].text;
-                    // Activar automáticamente el difusor cuando se selecciona un aroma
-                    if (!document.getElementById('diffuser-device').classList.contains('active')) {
-                        toggleDevice('diffuser');
-                    }
-                }
-                updateMetrics();
-            });
-        });
-        
-        // Función para alternar dispositivos
-        function toggleDevice(device) {
-            const deviceElement = document.getElementById(device + '-device');
-            const statusElement = document.getElementById(device + '-status');
-            const button = document.getElementById(device + '-toggle');
-            
-            deviceElement.classList.toggle('active');
-            
-            if (deviceElement.classList.contains('active')) {
-                button.className = 'btn btn-outline-danger';
-                button.innerHTML = '<i class="fas fa-power-off me-1"></i> Desactivar';
-                statusElement.className = 'text-success';
-                statusElement.textContent = 'Activado';
-                
-                if (device === 'diffuser' && document.getElementById('diffuser-selector').value === '') {
-                    // Seleccionar lavanda por defecto si no hay aroma seleccionado
-                    document.getElementById('diffuser-selector').value = 'lavanda';
-                    document.getElementById('diffuser-scent').textContent = 'Lavanda (Relajante)';
-                }
-            } else {
-                button.className = 'btn btn-outline-success';
-                button.innerHTML = '<i class="fas fa-power-off me-1"></i> Activar';
-                statusElement.className = 'text-secondary';
-                statusElement.textContent = 'Inactivo';
-            }
-            
-            updateMetrics();
-        }
-    </script>
+                <button id="btnSetLuz" class="btn btn-outline-primary w-100">
+                  <i class="fa-solid fa-save me-1"></i>Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Difusor -->
+          <div class="col-md-4">
+            <div class="card h-100" id="diffCard">
+              <div class="card-header"><i class="fas fa-wind me-2"></i>Difusor</div>
+              <div class="card-body">
+                <p>Aroma: <strong id="valOlor">—</strong></p>
+                <div class="mb-2">
+                  <select id="selOlor" class="form-select">
+                    <option value="">(Inactivo)</option>
+                    <option value="lavanda">Lavanda</option>
+                    <option value="menta">Menta</option>
+                    <option value="vainilla">Vainilla</option>
+                    <option value="eucalipto">Eucalipto</option>
+                  </select>
+                </div>
+                <button id="btnSetOlor" class="btn btn-outline-primary w-100">
+                  <i class="fa-solid fa-save me-1"></i>Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Puerta -->
+          <div class="col-md-4">
+            <div class="card h-100" id="doorCard">
+              <div class="card-header"><i class="fas fa-door-open me-2"></i>Puerta</div>
+              <div class="card-body">
+                <p>Estado: <span id="valDoor" class="door-chip">—</span></p>
+                <div class="d-grid gap-2">
+                  <button id="btnAbrir" class="btn btn-outline-success"><i class="fa-solid fa-door-open me-1"></i> Abrir</button>
+                  <button id="btnCerrar" class="btn btn-outline-warning"><i class="fa-solid fa-door-closed me-1"></i> Cerrar</button>
+                </div>
+                <div class="mt-3 small text-muted" id="doorAdvice"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Panel lateral -->
+      <div class="col-lg-4">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-user me-2"></i>Paciente</div>
+          <div class="card-body">
+            <h5 id="valNombre">—</h5>
+            <div class="small text-muted">Cuarto: <span id="valRoom">—</span></div>
+            <div class="mt-3" id="overallMsg" class="alert alert-info">—</div>
+            <h6 class="mt-3">Recomendaciones</h6>
+            <ul id="recoList" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-light mt-5 py-4 border-top">
+    <div class="container small text-muted d-flex justify-content-between">
+      <span>Sistema Avanzado de Detección de Ansiedad con IoT</span>
+      <span>Actualiza cada 2s</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/room.js"></script>
+  <script>
+    setInterval(()=>{document.getElementById('current-time').textContent=new Date().toLocaleTimeString();},1000);
+  </script>
 </body>
 </html>

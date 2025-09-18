@@ -1,75 +1,19 @@
 /* Marca / header */
-.bg-brand {
-background: linear-gradient(90deg, #2b5876 0%, #4e4376 100%);
-}
+.bg-brand{background:linear-gradient(90deg,#2b5876 0%,#4e4376 100%)}
 
+/* Tarjetas */
+.room-card{border:1px solid rgba(0,0,0,.06);border-radius:1rem;transition:transform .12s,box-shadow .12s}
+.room-card:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(0,0,0,.08)}
+.room-badge{font-size:.75rem}
 
-/* Tarjetas de habitación */
-.room-card {
-border: 1px solid rgba(0,0,0,0.06);
-border-radius: 1rem;
-transition: transform .12s ease, box-shadow .12s ease;
-}
-.room-card:hover {
-transform: translateY(-2px);
-box-shadow: 0 8px 26px rgba(0,0,0,0.08);
-}
-.room-badge {
-font-size: .75rem;
-}
-.stat {
-font-variant-numeric: tabular-nums;
-}
+/* Avatares y textos */
+.patient-avatar{width:50px;height:50px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+.progress-thin{height:6px}
+.last-update{font-size:.75rem;color:#6c757d}
+.card .fs-4{line-height:1.1}
 
-
-/* Detalle */
-.card .fs-4 { line-height: 1.1; }
-
-
-
-/* Mejoras para la página de control */
-.card {
-    border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 1rem;
-    transition: transform .12s ease, box-shadow .12s ease;
-}
-
-.card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-/* Mejoras para los controles */
-.form-range::-webkit-slider-thumb {
-    background: #2b5876;
-}
-
-.form-range::-moz-range-thumb {
-    background: #2b5876;
-}
-
-/* Toast personalizado */
-.toast {
-    z-index: 9999;
-}
-
-/* Estados de dispositivos */
-.device-on {
-    color: #198754;
-    font-weight: 600;
-}
-
-.device-off {
-    color: #6c757d;
-}
-
-/* Responsive improvements */
-@media (max-width: 768px) {
-    .fs-4 {
-        font-size: 1.2rem !important;
-    }
-    
-    .card-body {
-        padding: 1rem;
-    }
+/* Responsive */
+@media (max-width:768px){
+  .patient-avatar{width:40px;height:40px}
+  .room-badge{font-size:.7rem}
 }

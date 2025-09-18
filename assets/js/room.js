@@ -1,106 +1,123 @@
-(function () {
-    const params = new URLSearchParams(location.search);
-    const id = params.get('room');
+(function(){
+  const q = new URLSearchParams(location.search);
+  const id = q.get("room");
+  const $ = id => document.getElementById(id);
 
-    const $ = (id) => document.getElementById(id);
+  function paintDoorChip(state){
+    const el = $("valDoor");
+    el.className = "door-chip " + (state==="abierto" ? "door-open" : "door-closed");
+    el.textContent = state === "abierto" ? "abierta" : "cerrada";
+  }
 
-    // Estado local de los dispositivos
-    let currentRoomState = {
-        light: {
-            enabled: false,
-            color: 'apagada'
-        },
-        diffuser: {
-            enabled: false,
-            scent: 'apagado',
-            intensity: 1
-        }
-    };
+  function paintThresholds(hr,hrv,t,eda){
+    $("thrHR").style.width  = Math.min(100, (hr-60)/0.6) + "%";
+    $("thrHR").style.backgroundColor = hr>=90 ? "#dc3545" : hr>=80 ? "#ffc107" : "#28a745";
+    $("thrHRV").style.width = Math.max(0, 100 - (hrv)) + "%";
+    $("thrHRV").style.backgroundColor = hrv<=45 ? "#dc3545" : hrv<=55 ? "#ffc107" : "#28a745";
+    $("thrSkin").style.width = Math.max(0, 100 - ((t-33)/3*100)) + "%";
+    $("thrSkin").style.backgroundColor = t<=35.0 ? "#dc3545" : t<=35.5 ? "#ffc107" : "#28a745";
+    $("thrEDA").style.width = Math.min(100, eda/8*100) + "%";
+    $("thrEDA").style.backgroundColor = eda>=4.5 ? "#dc3545" : eda>=3.0 ? "#ffc107" : "#28a745";
+  }
 
-    async function loadRoom() {
-        if (!id) {
-            $('#roomError').classList.remove('d-none');
-            return;
-        }
+  function hourBetween(h1,h2){ // [h1,h2)
+    const now = new Date(); const h = now.getHours();
+    return h>=h1 && h<h2;
+  }
 
-        console.log(`Cargando habitación ${id}...`);
-        
-        // Obtener datos REALES de la API
-        let room = await fetchRoomById(id);
-        
-        // Solo usar fallback si la API falla
-        if (!room) {
-            console.warn("Usando datos de fallback para la habitación");
-            room = FALLBACK_ROOMS.find(r => String(r.id) === String(id)) || null;
-        }
+  function recommendations(room){
+    const list = $("recoList"); list.innerHTML = "";
+    const push = t => { const li = document.createElement("li"); li.className="list-group-item"; li.textContent=t; list.appendChild(li); };
 
-        if (!room) {
-            $('#roomError').classList.remove('d-none');
-            return;
-        }
-
-        console.log("Datos de la habitación:", room);
-
-        // Actualizar la interfaz con datos REALES
-        $('#roomNumber').textContent = room.cuarto ?? '—';
-        
-        const anxiety = room.anxietyLevel;
-        const sevBadge = $('#sevBadge');
-        sevBadge.textContent = anxiety.level;
-        sevBadge.className = `badge ${anxiety.class}`;
-
-        // Métricas
-        $('#valHR').textContent = room.HR ?? '—';
-        $('#valHRV').textContent = room.HRV ?? '—';
-        $('#valEDA').textContent = room.sudoracion ?? '—';
-        $('#valSkin').textContent = room.skinTemp ?? '—';
-        $('#valDate').textContent = room.date ? new Date(room.date).toLocaleString() : '—';
-
-        // Estado cuarto
-        $('#valId').textContent = room.id ?? '—';
-        $('#valRoom').textContent = room.cuarto ?? '—';
-        $('#valLight').textContent = room.tipLuz ?? '—';
-        $('#valSev').textContent = anxiety.level;
-
-        // Inicializar estado de dispositivos desde API
-        if (room.tipLuz) {
-            currentRoomState.light.color = room.tipLuz;
-            currentRoomState.light.enabled = room.tipLuz !== 'apagada';
-        }
-
-        updateDeviceStatus();
-
-        // Link directo a la API
-        const apiUrl = `${API_BASE_URL}/${RESOURCE}/${room.id}`;
-        const apiLink = $('#apiLink');
-        apiLink.href = apiUrl;
-
-        // Configurar event listeners
-        setupEventListeners();
-
-        // Auto-refresh cada 3 segundos para monitoreo en tiempo real
-        setInterval(async () => {
-            console.log(`Actualizando datos de habitación ${id}...`);
-            const updatedRoom = await fetchRoomById(id);
-            
-            if (updatedRoom) {
-                console.log("Datos actualizados:", updatedRoom);
-                
-                // Actualizar métricas
-                $('#valHR').textContent = updatedRoom.HR ?? '—';
-                $('#valHRV').textContent = updatedRoom.HRV ?? '—';
-                $('#valEDA').textContent = updatedRoom.sudoracion ?? '—';
-                $('#valSkin').textContent = updatedRoom.skinTemp ?? '—';
-                $('#valDate').textContent = updatedRoom.date ? new Date(updatedRoom.date).toLocaleString() : '—';
-                
-                // Actualizar severidad
-                const updatedAnxiety = updatedRoom.anxietyLevel;
-                sevBadge.textContent = updatedAnxiety.level;
-                sevBadge.className = `badge ${updatedAnxiety.class}`;
-                $('#valSev').textContent = updatedAnxiety.level;
-            }
-        }, 3000);
+    if (room.anxietyScore >= 40){
+      if ((room.tipLuz||"").toLowerCase()!=="calida") push("Cambiar luz a cálida.");
+      if (!room.olores) push("Activar difusor con lavanda.");
+      if (room.HR >= 90) push("Ejercicio de respiración 4-7-8 durante 1 minuto.");
+      if (room.sudoracion >= 4.5) push("Ajustar temperatura / hidratación.");
+    }else{
+      push("Continuar monitoreo cada 15 minutos.");
     }
 
-    document.addEventListener('DOMContentLoaded', loadRoom);
+    // Política de salida saludable 16–18h
+    const salidaHora = hourBetween(16,18);
+    if (salidaHora && room.anxietyScore >= 40 && room.doorState === "cerrado"){
+      push("Recomendación: salir a caminar 15 min (abrir puerta).");
+      $("doorAdvice").textContent = "Es hora sugerida de salida (16–18 h) y el paciente tiene ansiedad moderada/alta.";
+    }else{
+      $("doorAdvice").textContent = "";
+    }
+  }
+
+  function paintRoom(room){
+    $("roomNumber").textContent = room.cuarto ?? "—";
+    $("valRoom").textContent = room.cuarto ?? "—";
+    $("valNombre").textContent = room.nombrePaciente ?? "—";
+
+    $("valHR").textContent = room.HR ?? "—";
+    $("valHRV").textContent = room.HRV ?? "—";
+    $("valSkin").textContent = room.skinTemp ?? "—";
+    $("valEDA").textContent = room.sudoracion ?? "—";
+    $("valDate").textContent = room.date ? new Date(room.date).toLocaleString() : "—";
+
+    $("valTipLuz").textContent = room.tipLuz || "apagada";
+    $("selTipLuz").value = (room.tipLuz || "apagada").toLowerCase();
+    $("valOlor").textContent = room.olores || "(inactivo)";
+    $("selOlor").value = room.olores || "";
+
+    const sev = room.anxietyLevel;
+    const sevBadge = $("sevBadge");
+    sevBadge.className = `badge bg-${sev.class}`;
+    sevBadge.textContent = sev.level;
+
+    $("anxScore").textContent = `${room.anxietyScore}%`;
+    const bar = $("anxBar");
+    bar.style.width = `${room.anxietyScore}%`;
+    bar.className = `progress-bar bg-${sev.class}`;
+
+    paintDoorChip(room.doorState);
+    paintThresholds(room.HR, room.HRV, room.skinTemp, room.sudoracion);
+
+    const msg = $("overallMsg");
+    msg.className = `alert alert-${sev.class}`;
+    msg.textContent = `Nivel de ansiedad: ${sev.level}`;
+
+    recommendations(room);
+  }
+
+  async function load(){
+    if (!id){ $("roomError").classList.remove("d-none"); return; }
+    const room = await fetchRoomById(id, true);
+    if (!room){ $("roomError").classList.remove("d-none"); return; }
+    paintRoom(room);
+  }
+
+  // Event handlers
+  async function saveLight(){
+    const val = $("selTipLuz").value;
+    const updated = await updateRoom(id, { tipLuz: val });
+    if (updated) paintRoom(updated);
+  }
+  async function saveScent(){
+    const val = $("selOlor").value; // "" = inactivo
+    const updated = await updateRoom(id, { olores: val });
+    if (updated) paintRoom(updated);
+  }
+  async function openDoor(){
+    const updated = await updateRoom(id, { doorState: "abierto" });
+    if (updated) paintRoom(updated);
+  }
+  async function closeDoor(){
+    const updated = await updateRoom(id, { doorState: "cerrado" });
+    if (updated) paintRoom(updated);
+  }
+
+  document.addEventListener("DOMContentLoaded", ()=>{
+    load();
+    setInterval(load, 2000);
+
+    $("btnSetLuz").addEventListener("click", saveLight);
+    $("btnSetOlor").addEventListener("click", saveScent);
+    $("btnAbrir").addEventListener("click", openDoor);
+    $("btnCerrar").addEventListener("click", closeDoor);
+  });
 })();

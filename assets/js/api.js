@@ -1,186 +1,155 @@
 /**
- * Capa de datos: centraliza el acceso a MockAPI
+ * Capa de datos: MockAPI
+ * Campos: id, cuarto, tipLuz, HR, skinTemp, sudoracion, alertas, HRV, date, doorState, nombrePaciente, olores
  */
 const API_BASE_URL = "https://68bb0de584055bce63f104e1.mockapi.io/api/v1";
 const RESOURCE = "Test";
 
-// Algoritmo unificado para calcular ansiedad
-function calculateAnxietyLevel(hr, hrv, temp, sweat) {
-    let anxietyScore = 0;
-    
-    // Ritmo cardíaco (30%)
-    if (hr >= 100) anxietyScore += 30;
-    else if (hr >= 90) anxietyScore += 20;
-    else if (hr >= 80) anxietyScore += 10;
-    
-    // Variabilidad del ritmo cardíaco (30%)
-    if (hrv <= 35) anxietyScore += 30;
-    else if (hrv <= 45) anxietyScore += 20;
-    else if (hrv <= 55) anxietyScore += 10;
-    
-    // Temperatura de la piel (20%)
-    if (temp <= 34.5) anxietyScore += 20;
-    else if (temp <= 35.0) anxietyScore += 15;
-    else if (temp <= 35.5) anxietyScore += 10;
-    
-    // Sudoración (20%) - Convertir texto a número si es necesario
-    const sweatValue = typeof sweat === 'string' ? parseFloat(sweat) || 2.0 : sweat;
-    if (sweatValue >= 6.0) anxietyScore += 20;
-    else if (sweatValue >= 4.5) anxietyScore += 15;
-    else if (sweatValue >= 3.0) anxietyScore += 10;
-    
-    return Math.min(100, Math.max(0, Math.round(anxietyScore)));
+// Cache básico (2s)
+let currentRoomsData = null;
+let lastFetchTime = null;
+const CACHE_DURATION = 2000;
+
+// --- Utilidades de dominio ---
+function toNum(x, def=0){
+  if (x === null || x === undefined) return def;
+  if (typeof x === "number") return x;
+  const n = parseFloat(String(x).replace(",", "."));
+  return Number.isFinite(n) ? n : def;
 }
 
-// Determinar el nivel de ansiedad
-function getAnxietyLevel(score) {
-    if (score >= 70) return { level: "Alta", class: "danger", icon: "fa-exclamation-triangle" };
-    if (score >= 40) return { level: "Moderada", class: "warning", icon: "fa-exclamation-circle" };
-    if (score >= 20) return { level: "Leve", class: "info", icon: "fa-info-circle" };
-    return { level: "Estable", class: "success", icon: "fa-check-circle" };
+function normalizeDoorState(s){
+  const val = (s||"").toString().trim().toLowerCase();
+  return val === "abierto" ? "abierto" : "cerrado";
 }
 
-// Función para obtener todos los cuartos
-async function fetchRoomsFromApi() {
-    try {
-        console.log("📡 Obteniendo datos de MockAPI...");
-        const resp = await fetch(`${API_BASE_URL}/${RESOURCE}`);
-        
-        if (!resp.ok) {
-            throw new Error(`Error HTTP: ${resp.status} ${resp.statusText}`);
-        }
-        
-        const data = await resp.json();
-        console.log("✅ Datos recibidos de MockAPI:", data);
-        
-        if (!Array.isArray(data)) {
-            throw new Error("La API no devolvió un array");
-        }
-        
-        // Procesar datos y calcular ansiedad
-        const processedData = data.map(room => {
-            // Convertir sudoracion de texto a número si es necesario
-            const sweatValue = typeof room.sudoracion === 'string' ? 
-                parseFloat(room.sudoracion.replace(',', '.')) || 2.0 : 
-                room.sudoracion;
-            
-            const anxietyScore = calculateAnxietyLevel(
-                Number(room.HR) || 75,
-                Number(room.HRV) || 50,
-                Number(room.skinTemp) || 35.5,
-                sweatValue
-            );
-            
-            return {
-                id: room.id,
-                cuarto: room.cuarto,
-                tipLuz: room.tipluz,
-                HR: room.HR,
-                HRV: room.HRV,
-                skinTemp: room.skinTemp,
-                sudoracion: sweatValue,
-                alertas: room.alertas,
-                date: room.date,
-                anxietyScore: anxietyScore,
-                anxietyLevel: getAnxietyLevel(anxietyScore)
-            };
-        });
-        
-        return processedData;
-        
-    } catch (error) {
-        console.error("❌ Error fetching from API:", error);
-        console.warn("⚠️ Usando datos de fallback");
-        return null;
+// --- Ansiedad ---
+function calculateAnxietyScore(hr, hrv, skinTemp, sweat){
+  let score = 0;
+  // HR (30%)
+  if (hr >= 100) score += 30;
+  else if (hr >= 90) score += 20;
+  else if (hr >= 80) score += 10;
+
+  // HRV (30%) - menor HRV => mayor ansiedad
+  if (hrv <= 35) score += 30;
+  else if (hrv <= 45) score += 20;
+  else if (hrv <= 55) score += 10;
+
+  // skinTemp (20%) - más baja => mayor ansiedad
+  if (skinTemp <= 34.5) score += 20;
+  else if (skinTemp <= 35.0) score += 15;
+  else if (skinTemp <= 35.5) score += 10;
+
+  // sudoracion (20%)
+  if (sweat >= 6.0) score += 20;
+  else if (sweat >= 4.5) score += 15;
+  else if (sweat >= 3.0) score += 10;
+
+  return Math.min(100, Math.max(0, Math.round(score)));
+}
+
+function anxietyLevel(score){
+  if (score >= 70) return { level:"Alta", class:"danger", icon:"fa-exclamation-triangle" };
+  if (score >= 40) return { level:"Moderada", class:"warning", icon:"fa-exclamation-circle" };
+  if (score >= 20) return { level:"Leve", class:"info", icon:"fa-info-circle" };
+  return { level:"Estable", class:"success", icon:"fa-check-circle" };
+}
+
+// --- Fetch list ---
+async function fetchRoomsFromApi(forceRefresh=false){
+  if (!forceRefresh && currentRoomsData && lastFetchTime && (Date.now()-lastFetchTime) < CACHE_DURATION){
+    return currentRoomsData;
+  }
+  try{
+    const resp = await fetch(`${API_BASE_URL}/${RESOURCE}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!Array.isArray(data)) throw new Error("API no devolvió un array");
+    currentRoomsData = data.map(mapRoom);
+    lastFetchTime = Date.now();
+    return currentRoomsData;
+  }catch(err){
+    console.error("Error fetchRoomsFromApi:", err);
+    return currentRoomsData || [];
+  }
+}
+
+// --- Fetch single ---
+async function fetchRoomById(id, forceRefresh=false){
+  if (!forceRefresh && currentRoomsData){
+    const cached = currentRoomsData.find(r => String(r.id)===String(id));
+    if (cached) return cached;
+  }
+  try{
+    const resp = await fetch(`${API_BASE_URL}/${RESOURCE}/${id}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const raw = await resp.json();
+    const room = mapRoom(raw);
+
+    // Actualiza cache
+    if (currentRoomsData){
+      const i = currentRoomsData.findIndex(r => String(r.id)===String(id));
+      if (i>=0) currentRoomsData[i] = room; else currentRoomsData.push(room);
+      lastFetchTime = Date.now();
+    }else{
+      currentRoomsData = [room];
+      lastFetchTime = Date.now();
     }
+    return room;
+  }catch(err){
+    console.error("Error fetchRoomById:", err);
+    return null;
+  }
 }
 
-// Obtener un cuarto específico por ID
-async function fetchRoomById(id) {
-    try {
-        console.log(`📡 Obteniendo datos del cuarto ${id}...`);
-        const resp = await fetch(`${API_BASE_URL}/${RESOURCE}/${id}`);
-        
-        if (!resp.ok) {
-            throw new Error(`Error HTTP: ${resp.status} ${resp.statusText}`);
-        }
-        
-        const room = await resp.json();
-        console.log("✅ Datos del cuarto recibidos:", room);
-        
-        // Convertir sudoracion de texto a número si es necesario
-        const sweatValue = typeof room.sudoracion === 'string' ? 
-            parseFloat(room.sudoracion.replace(',', '.')) || 2.0 : 
-            room.sudoracion;
-        
-        const anxietyScore = calculateAnxietyLevel(
-            Number(room.HR) || 75,
-            Number(room.HRV) || 50,
-            Number(room.skinTemp) || 35.5,
-            sweatValue
-        );
-        
-        return {
-            id: room.id,
-            cuarto: room.cuarto,
-            tipLuz: room.tipluz,
-            HR: room.HR,
-            HRV: room.HRV,
-            skinTemp: room.skinTemp,
-            sudoracion: sweatValue,
-            alertas: room.alertas,
-            date: room.date,
-            anxietyScore: anxietyScore,
-            anxietyLevel: getAnxietyLevel(anxietyScore)
-        };
-        
-    } catch (error) {
-        console.error(`❌ Error fetching room ${id}:`, error);
-        return null;
+// --- Update ---
+async function updateRoom(id, patch){
+  try{
+    const resp = await fetch(`${API_BASE_URL}/${RESOURCE}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(patch)
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const updated = mapRoom(await resp.json());
+    // invalida/actualiza cache
+    if (currentRoomsData){
+      const i = currentRoomsData.findIndex(r => String(r.id)===String(id));
+      if (i>=0) currentRoomsData[i]=updated; else currentRoomsData.push(updated);
     }
+    lastFetchTime = 0;
+    return updated;
+  }catch(err){
+    console.error("Error updateRoom:", err);
+    return null;
+  }
 }
 
-// Actualizar un cuarto en la API
-async function updateRoom(id, data) {
-    try {
-        const resp = await fetch(`${API_BASE_URL}/${RESOURCE}/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!resp.ok) {
-            throw new Error(`Error HTTP: ${resp.status}`);
-        }
-        
-        return await resp.json();
-    } catch (error) {
-        console.error("❌ Error updating room:", error);
-        return null;
-    }
-}
+// --- Mapper único (solo usa tus campos) ---
+function mapRoom(room){
+  const hr  = toNum(room.HR, 75);
+  const hrv = toNum(room.HRV, 50);
+  const t   = toNum(room.skinTemp, 35.5);
+  const eda = toNum(room.sudoracion, 2.0);
 
-// Datos de fallback (solo si la API falla)
-const FALLBACK_ROOMS = [
-    { id: "1", cuarto: 101, tipLuz: "cálida", HR: 78, HRV: 58, skinTemp: 35.8, sudoracion: 2.1, alertas: "sin alerta", date: new Date().toISOString() },
-    { id: "2", cuarto: 102, tipLuz: "fría", HR: 95, HRV: 34, skinTemp: 35.1, sudoracion: 6.4, alertas: "moderada", date: new Date().toISOString() },
-    { id: "3", cuarto: 103, tipLuz: "apagada", HR: 66, HRV: 72, skinTemp: 36.1, sudoracion: 1.3, alertas: "sin alerta", date: new Date().toISOString() },
-    { id: "4", cuarto: 104, tipLuz: "neutra", HR: 88, HRV: 49, skinTemp: 35.6, sudoracion: 3.1, alertas: "sin alerta", date: new Date().toISOString() },
-    { id: "5", cuarto: 105, tipLuz: "cálida", HR: 104, HRV: 28, skinTemp: 35.0, sudoracion: 7.2, alertas: "alta", date: new Date().toISOString() },
-    { id: "6", cuarto: 106, tipLuz: "neutra", HR: 72, HRV: 60, skinTemp: 36.0, sudoracion: 2.8, alertas: "sin alerta", date: new Date().toISOString() }
-].map(room => {
-    const anxietyScore = calculateAnxietyLevel(
-        Number(room.HR),
-        Number(room.HRV),
-        Number(room.skinTemp),
-        Number(room.sudoracion)
-    );
-    
-    return {
-        ...room,
-        anxietyScore: anxietyScore,
-        anxietyLevel: getAnxietyLevel(anxietyScore)
-    };
-});
+  const score = calculateAnxietyScore(hr, hrv, t, eda);
+  const lvl = anxietyLevel(score);
+
+  return {
+    id: String(room.id),
+    cuarto: toNum(room.cuarto, 0),
+    tipLuz: (room.tipLuz ?? "").toString(),      // string libre (incluye "apagada")
+    HR: hr,
+    HRV: hrv,
+    skinTemp: t,
+    sudoracion: eda,
+    alertas: (room.alertas ?? "").toString(),
+    date: room.date ?? null,
+    doorState: normalizeDoorState(room.doorState),
+    nombrePaciente: (room.nombrePaciente ?? `Paciente ${room.cuarto ?? ""}`).toString(),
+    olores: (room.olores ?? "").toString(),      // aroma seleccionado, vacío = inactivo
+    anxietyScore: score,
+    anxietyLevel: lvl
+  };
+}
