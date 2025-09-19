@@ -126,6 +126,26 @@ async function updateRoom(id, patch){
   }
 }
 
+// --- Create ---
+async function createRoom(data){
+  try{
+    const resp = await fetch(`${API_BASE_URL}/${RESOURCE}`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const createdRaw = await resp.json();
+    const created = mapRoom(createdRaw);
+    if (currentRoomsData) currentRoomsData.unshift(created);
+    lastFetchTime = 0;
+    return created;
+  }catch(err){
+    console.error("Error createRoom:", err);
+    return null;
+  }
+}
+
 // --- Mapper único (solo usa tus campos) ---
 function mapRoom(room){
   const hr  = toNum(room.HR, 75);

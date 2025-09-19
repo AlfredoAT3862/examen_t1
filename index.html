@@ -29,8 +29,26 @@
   <!-- Header -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-brand shadow-sm">
     <div class="container">
-      <a class="navbar-brand fw-semibold" href="#"><i class="fas fa-hospital me-2"></i>Hospital Psiquiátrico</a>
-      <div class="navbar-text"><i class="fas fa-clock me-1"></i> <span id="current-time">--:--:--</span></div>
+      <a class="navbar-brand fw-semibold" href="index.html">
+        <i class="fas fa-hospital me-2"></i>Hospital Psiquiátrico
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-3">
+          <li class="nav-item text-white-50">
+            <i class="fas fa-clock me-1"></i> <span id="current-time">--:--:--</span>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-light btn-sm" href="register.html">
+              <i class="fa-solid fa-plus me-1"></i> Registrar cuarto
+            </a>
+          </li>
+        </ul>
+      </div>
     </div>
   </nav>
 
