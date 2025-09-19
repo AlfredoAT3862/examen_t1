@@ -3,7 +3,38 @@
   const id = q.get("room");
   const $ = id => document.getElementById(id);
 
-  /* ---------------- Pintado existente ---------------- */
+  /* ================= util: localStorage (persistencia por cuarto) ================= */
+  const LS_KEY = id ? `anxHist:${id}` : null;
+
+  function loadHistoryFromStorage(){
+    if (!LS_KEY) return { light:[], aroma:[], door:[], vitals:[] };
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { light:[], aroma:[], door:[], vitals:[] };
+      const parsed = JSON.parse(raw);
+      // sanea estructura por si hay claves faltantes
+      return {
+        light:  Array.isArray(parsed.light)  ? parsed.light  : [],
+        aroma:  Array.isArray(parsed.aroma)  ? parsed.aroma  : [],
+        door:   Array.isArray(parsed.door)   ? parsed.door   : [],
+        vitals: Array.isArray(parsed.vitals) ? parsed.vitals : []
+      };
+    }catch(_){
+      return { light:[], aroma:[], door:[], vitals:[] };
+    }
+  }
+  function saveHistoryToStorage(){
+    if (!LS_KEY) return;
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify(history));
+    }catch(_){}
+  }
+  function clearHistoryStorage(){
+    if (!LS_KEY) return;
+    try{ localStorage.removeItem(LS_KEY); }catch(_){}
+  }
+
+  /* ================= pintado existente ================= */
 
   function paintDoorChip(state){
     const el = $("valDoor");
@@ -111,7 +142,7 @@
 
     recommendations(room);
 
-    // actualizar históricos
+    // actualizar históricos + pintar
     pushHistories(room);
     renderHistories();
   }
@@ -144,11 +175,8 @@
     if (updated) paintRoom(updated);
   }
 
-  /* ---------------- NUEVO: botón Eliminar (inyectado) ---------------- */
-
+  /* ================= NUEVO: botón Eliminar (inyectado) ================= */
   function injectDeleteButton(){
-    // crea un botón “Eliminar cuarto” en la barra superior del detalle
-    // lo insertamos al final del contenedor .container de la navbar (lado derecho)
     const navbar = document.querySelector(".navbar .container");
     if (!navbar || document.getElementById("btnDeleteRoom")) return;
     const btn = document.createElement("button");
@@ -158,20 +186,18 @@
     btn.addEventListener("click", async ()=>{
       if (!confirm("¿Eliminar este cuarto definitivamente?")) return;
       const ok = await deleteRoom(id);
-      if (ok) location.href = "index.html";
-      else alert("No se pudo eliminar. Intenta nuevamente.");
+      if (ok){
+        clearHistoryStorage(); // limpia historial persistido de este cuarto
+        location.href = "index.html";
+      } else {
+        alert("No se pudo eliminar. Intenta nuevamente.");
+      }
     });
     navbar.appendChild(btn);
   }
 
-  /* ---------------- NUEVO: históricos (últimos 10) ---------------- */
-
-  const history = {
-    light: [],   // {ts, value}
-    aroma: [],   // {ts, value}
-    door: [],    // {ts, value}
-    vitals: []   // {ts, score, hr, hrv, t, eda}
-  };
+  /* ================= Históricos (últimos 10) con persistencia ================= */
+  const history = loadHistoryFromStorage(); // ¡carga historial si existe!
   const MAX_HIST = 10;
 
   function ensureHistoryCard(){
@@ -258,6 +284,9 @@
     cap10(history.aroma);
     cap10(history.door);
     cap10(history.vitals);
+
+    // ¡persistir!
+    saveHistoryToStorage();
   }
 
   function renderTableRows(tbodyId, rowsHtml){
@@ -290,10 +319,14 @@
     renderTableRows("histVitals", vitRows);
   }
 
-  /* ---------------- Boot ---------------- */
+  /* ================= Boot ================= */
 
   document.addEventListener("DOMContentLoaded", ()=>{
     injectDeleteButton();
+
+    // dibuja de inmediato lo que haya en storage (si existe)
+    renderHistories();
+
     load();
     setInterval(load, 2000);
 
