@@ -3,6 +3,31 @@
   const id = q.get("room");
   const $ = id => document.getElementById(id);
 
+  /* ================== Candado de interacción (pausar auto-refresh) ================== */
+  let uiBusy = false;
+  let uiBusyTimer = null;
+  function holdRefresh(ms = 2500){
+    uiBusy = true;
+    if (uiBusyTimer) clearTimeout(uiBusyTimer);
+    uiBusyTimer = setTimeout(()=>{ uiBusy = false; }, ms);
+  }
+  function setControlsDisabled(disabled){
+    const btns = ["btnSetLuz","btnSetOlor","btnAbrir","btnCerrar"]
+      .map($).filter(Boolean);
+    btns.forEach(b=> b.disabled = disabled);
+    const selects = ["selTipLuz","selOlor"].map($).filter(Boolean);
+    selects.forEach(s=> s.disabled = disabled);
+  }
+  function wireHoldRefresh(){
+    const els = ["selTipLuz","selOlor","btnSetLuz","btnSetOlor","btnAbrir","btnCerrar"]
+      .map($).filter(Boolean);
+    els.forEach(el=>{
+      ["mousedown","touchstart","focus","click","change","keydown"].forEach(ev=>{
+        el.addEventListener(ev, ()=>holdRefresh(), { passive:true });
+      });
+    });
+  }
+
   /* ================= util: localStorage (persistencia por cuarto) ================= */
   const LS_KEY = id ? `anxHist:${id}` : null;
 
@@ -12,7 +37,6 @@
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return { light:[], aroma:[], door:[], vitals:[] };
       const parsed = JSON.parse(raw);
-      // sanea estructura por si hay claves faltantes
       return {
         light:  Array.isArray(parsed.light)  ? parsed.light  : [],
         aroma:  Array.isArray(parsed.aroma)  ? parsed.aroma  : [],
@@ -25,9 +49,7 @@
   }
   function saveHistoryToStorage(){
     if (!LS_KEY) return;
-    try{
-      localStorage.setItem(LS_KEY, JSON.stringify(history));
-    }catch(_){}
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(history)); }catch(_){}
   }
   function clearHistoryStorage(){
     if (!LS_KEY) return;
@@ -147,9 +169,10 @@
     renderHistories();
   }
 
-  // Carga: usa los datos tal cual vienen de api.js (que ya aplica snapshot sincronizado)
+  // Carga: usa los datos tal cual vienen de api.js (snapshot sincronizado)
   async function load(){
     if (!id){ const err = $("roomError"); if (err) err.classList.remove("d-none"); return; }
+    if (uiBusy) return; // PAUSAR mientras usuario interactúa
     const room = await fetchRoomById(id, true);
     if (!room){ const err = $("roomError"); if (err) err.classList.remove("d-none"); return; }
     paintRoom(room);
@@ -157,22 +180,46 @@
 
   // Event handlers (persisten en la API y se refleja en próximo tick)
   async function saveLight(){
-    const val = $("selTipLuz").value;
-    const updated = await updateRoom(id, { tipLuz: val });
-    if (updated) paintRoom(updated);
+    try{
+      holdRefresh(2500);
+      setControlsDisabled(true);
+      const val = $("selTipLuz").value;
+      const updated = await updateRoom(id, { tipLuz: val });
+      if (updated) paintRoom(updated);
+    }finally{
+      setControlsDisabled(false);
+    }
   }
   async function saveScent(){
-    const val = $("selOlor").value; // "" = inactivo
-    const updated = await updateRoom(id, { olores: val });
-    if (updated) paintRoom(updated);
+    try{
+      holdRefresh(2500);
+      setControlsDisabled(true);
+      const val = $("selOlor").value; // "" = inactivo
+      const updated = await updateRoom(id, { olores: val });
+      if (updated) paintRoom(updated);
+    }finally{
+      setControlsDisabled(false);
+    }
   }
   async function openDoor(){
-    const updated = await updateRoom(id, { doorState: "abierto" });
-    if (updated) paintRoom(updated);
+    try{
+      holdRefresh(2000);
+      setControlsDisabled(true);
+      const updated = await updateRoom(id, { doorState: "abierto" });
+      if (updated) paintRoom(updated);
+    }finally{
+      setControlsDisabled(false);
+    }
   }
   async function closeDoor(){
-    const updated = await updateRoom(id, { doorState: "cerrado" });
-    if (updated) paintRoom(updated);
+    try{
+      holdRefresh(2000);
+      setControlsDisabled(true);
+      const updated = await updateRoom(id, { doorState: "cerrado" });
+      if (updated) paintRoom(updated);
+    }finally{
+      setControlsDisabled(false);
+    }
   }
 
   /* ================= NUEVO: botón Eliminar (inyectado) ================= */
@@ -203,7 +250,6 @@
   function ensureHistoryCard(){
     if (document.getElementById("historyCard")) return;
 
-    // Columna izquierda (donde están las métricas y dispositivos)
     const leftCol = document.querySelector(".container .row > .col-lg-8");
     if (!leftCol) return;
 
@@ -285,7 +331,6 @@
     cap10(history.door);
     cap10(history.vitals);
 
-    // ¡persistir!
     saveHistoryToStorage();
   }
 
@@ -298,7 +343,6 @@
   function renderHistories(){
     ensureHistoryCard();
 
-    // render invertido (lo más reciente primero)
     const lightRows = [...history.light].reverse().map(r => `<tr><td>${r.ts}</td><td>${r.value}</td></tr>`).join("");
     const aromaRows = [...history.aroma].reverse().map(r => `<tr><td>${r.ts}</td><td>${r.value}</td></tr>`).join("");
     const doorRows  = [...history.door].reverse().map(r => `<tr><td>${r.ts}</td><td>${r.value}</td></tr>`).join("");
@@ -321,18 +365,24 @@
 
   /* ================= Boot ================= */
 
+  let intervalId = null;
+
   document.addEventListener("DOMContentLoaded", ()=>{
     injectDeleteButton();
+    wireHoldRefresh();
 
-    // dibuja de inmediato lo que haya en storage (si existe)
+    // pinta lo que haya en storage al entrar (si existe)
     renderHistories();
 
     load();
-    setInterval(load, 2000);
+    intervalId = setInterval(load, 2000);
 
     if ($("btnSetLuz")) $("btnSetLuz").addEventListener("click", saveLight);
     if ($("btnSetOlor")) $("btnSetOlor").addEventListener("click", saveScent);
     if ($("btnAbrir")) $("btnAbrir").addEventListener("click", openDoor);
     if ($("btnCerrar")) $("btnCerrar").addEventListener("click", closeDoor);
   });
+
+  // limpieza opcional si la página se descarga
+  window.addEventListener("beforeunload", ()=>{ if (intervalId) clearInterval(intervalId); });
 })();
