@@ -84,6 +84,7 @@
     recommendations(room);
   }
 
+  // Carga: usa los datos tal cual vienen de api.js (que ya aplica snapshot sincronizado)
   async function load(){
     if (!id){ $("roomError").classList.remove("d-none"); return; }
     const room = await fetchRoomById(id, true);
@@ -91,7 +92,7 @@
     paintRoom(room);
   }
 
-  // Event handlers
+  // Event handlers (persisten en la API y se refleja en próximo tick)
   async function saveLight(){
     const val = $("selTipLuz").value;
     const updated = await updateRoom(id, { tipLuz: val });

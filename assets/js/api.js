@@ -23,7 +23,7 @@ function normalizeDoorState(s){
   return val === "abierto" ? "abierto" : "cerrado";
 }
 
-// --- Ansiedad ---
+// --- Ansiedad (biométricos) ---
 function calculateAnxietyScore(hr, hrv, skinTemp, sweat){
   let score = 0;
   // HR (30%)
@@ -56,22 +56,139 @@ function anxietyLevel(score){
   return { level:"Estable", class:"success", icon:"fa-check-circle" };
 }
 
+/* ======= NUEVO: efecto de dispositivos (igual para index y room) ======= */
+function deviceMultiplier(room){
+  const tip = (room.tipLuz || "").toLowerCase();
+  const aroma = (room.olores || "").toLowerCase();
+  const door = normalizeDoorState(room.doorState);
+  let m = 1.0;
+
+  // Luz
+  if (tip === "calida") m *= 0.80;
+  else if (tip === "violeta") m *= 0.85;
+  else if (tip === "azul") m *= 0.92;
+  else if (tip === "fria") m *= 0.95;
+  else if (tip === "apagada") m *= 1.08;
+
+  // Aroma
+  if (aroma) m *= 0.85; else m *= 1.08;
+
+  // Puerta 16–18 h
+  const h = new Date().getHours();
+  if (h >= 16 && h < 18){
+    if (door === "abierto") m *= 0.92; else m *= 1.05;
+  }
+
+  return Math.max(0.4, Math.min(1.2, m));
+}
+
+function calculateAnxietyScoreWithDevices(hr, hrv, skinTemp, sweat, room){
+  const base = calculateAnxietyScore(hr, hrv, skinTemp, sweat);
+  const mult = deviceMultiplier(room || {});
+  return Math.min(100, Math.max(0, Math.round(base * mult)));
+}
+/* ======= fin efecto dispositivos ======= */
+
+/* ======= NUEVO: instantánea virtual sincronizada (no persiste en API) =======
+   - Se calcula en api.js para que index y room vean los mismos números por tick.
+   - Usa un jitter determinístico por (id, tick de 2s) + tendencia por dispositivos.
+*/
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const TICK_MS = 2000;
+function currentTick(){ return Math.floor(Date.now()/TICK_MS); }
+
+function hashId(s){
+  s = String(s || "");
+  let h = 0;
+  for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function noise(seed, amp){
+  // ruido determinístico en [-amp, amp]
+  const x = Math.sin(seed) * 43758.5453;
+  return (x - Math.floor(x)) * 2*amp - amp;
+}
+
+function snapshotFromBase(baseRoom){
+  // copia para no tocar cache
+  const r = { ...baseRoom };
+
+  // 1) Punto de partida = valores de API
+  let hr  = Number(r.HR)  || 75;
+  let hrv = Number(r.HRV) || 50;
+  let t   = Number(r.skinTemp) || 35.5;
+  let eda = Number(r.sudoracion) || 2.0;
+
+  // 2) Jitter determinístico por tick
+  const tick = currentTick();
+  const hid = hashId(r.id);
+  hr  += noise(hid*1.1 + tick*0.7, 2.2);
+  hrv += noise(hid*1.7 + tick*1.1, 2.5);
+  t   += noise(hid*2.3 + tick*1.3, 0.12);
+  eda += noise(hid*3.1 + tick*0.9, 0.22);
+
+  // 3) Tendencia por dispositivos (misma lógica que en deviceMultiplier)
+  const tip = (r.tipLuz || "").toLowerCase();
+  const aroma = (r.olores || "").toLowerCase();
+  const door  = (r.doorState || "cerrado").toLowerCase();
+
+  if (tip === "calida"){ hr -= 3; hrv += 6; t += 0.15; eda -= 0.20; }
+  else if (tip === "violeta"){ hr -= 2; hrv += 4; t += 0.10; eda -= 0.15; }
+  else if (tip === "azul"){ hr -= 1; hrv += 2; eda -= 0.10; }
+  else if (tip === "apagada"){ hr += 2; hrv -= 3; eda += 0.20; }
+
+  if (aroma){ hr -= 1.5; hrv += 3; eda -= 0.15; } else { hr += 1.5; hrv -= 2.5; eda += 0.20; }
+
+  const h = new Date().getHours();
+  if (h >= 16 && h < 18){
+    if (door === "abierto"){ hr -= 1.0; hrv += 1.8; eda -= 0.10; }
+    else { hr += 0.8; hrv -= 1.0; eda += 0.08; }
+  }
+
+  // 4) Límites fisiológicos
+  hr  = Math.round(clamp(hr, 50, 120));
+  hrv = Math.round(clamp(hrv, 15, 130));
+  t   = clamp(parseFloat(t.toFixed(1)), 33.0, 37.8);
+  eda = clamp(parseFloat(eda.toFixed(1)), 0.3, 10.0);
+
+  // 5) Recalcular ansiedad con efecto dispositivos
+  const score = calculateAnxietyScoreWithDevices(hr, hrv, t, eda, r);
+  const lvl = anxietyLevel(score);
+
+  // 6) Devolver snapshot coherente
+  return {
+    ...r,
+    HR: hr,
+    HRV: hrv,
+    skinTemp: t,
+    sudoracion: eda,
+    anxietyScore: score,
+    anxietyLevel: lvl,
+    date: new Date().toISOString()
+  };
+}
+/* ======= fin snapshot ======= */
+
 // --- Fetch list ---
 async function fetchRoomsFromApi(forceRefresh=false){
   if (!forceRefresh && currentRoomsData && lastFetchTime && (Date.now()-lastFetchTime) < CACHE_DURATION){
-    return currentRoomsData;
+    // devolver snapshots sincronizados desde cache base
+    return currentRoomsData.map(snapshotFromBase);
   }
   try{
     const resp = await fetch(`${API_BASE_URL}/${RESOURCE}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     if (!Array.isArray(data)) throw new Error("API no devolvió un array");
+    // guardamos base mapeada en cache
     currentRoomsData = data.map(mapRoom);
     lastFetchTime = Date.now();
-    return currentRoomsData;
+    // devolvemos snapshots (no guardamos snapshot en cache)
+    return currentRoomsData.map(snapshotFromBase);
   }catch(err){
     console.error("Error fetchRoomsFromApi:", err);
-    return currentRoomsData || [];
+    // si hay cache, al menos dar snapshot de lo último válido
+    return (currentRoomsData || []).map(snapshotFromBase);
   }
 }
 
@@ -79,7 +196,7 @@ async function fetchRoomsFromApi(forceRefresh=false){
 async function fetchRoomById(id, forceRefresh=false){
   if (!forceRefresh && currentRoomsData){
     const cached = currentRoomsData.find(r => String(r.id)===String(id));
-    if (cached) return cached;
+    if (cached) return snapshotFromBase(cached);
   }
   try{
     const resp = await fetch(`${API_BASE_URL}/${RESOURCE}/${id}`);
@@ -87,7 +204,7 @@ async function fetchRoomById(id, forceRefresh=false){
     const raw = await resp.json();
     const room = mapRoom(raw);
 
-    // Actualiza cache
+    // Actualiza cache BASE (no snapshot)
     if (currentRoomsData){
       const i = currentRoomsData.findIndex(r => String(r.id)===String(id));
       if (i>=0) currentRoomsData[i] = room; else currentRoomsData.push(room);
@@ -96,10 +213,12 @@ async function fetchRoomById(id, forceRefresh=false){
       currentRoomsData = [room];
       lastFetchTime = Date.now();
     }
-    return room;
+    // devolvemos snapshot sincronizado
+    return snapshotFromBase(room);
   }catch(err){
     console.error("Error fetchRoomById:", err);
-    return null;
+    const cached = currentRoomsData ? currentRoomsData.find(r => String(r.id)===String(id)) : null;
+    return cached ? snapshotFromBase(cached) : null;
   }
 }
 
@@ -113,13 +232,14 @@ async function updateRoom(id, patch){
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const updated = mapRoom(await resp.json());
-    // invalida/actualiza cache
+    // actualiza cache BASE
     if (currentRoomsData){
       const i = currentRoomsData.findIndex(r => String(r.id)===String(id));
       if (i>=0) currentRoomsData[i]=updated; else currentRoomsData.push(updated);
     }
     lastFetchTime = 0;
-    return updated;
+    // devolvemos snapshot (para quien lo use directo)
+    return snapshotFromBase(updated);
   }catch(err){
     console.error("Error updateRoom:", err);
     return null;
@@ -139,7 +259,8 @@ async function createRoom(data){
     const created = mapRoom(createdRaw);
     if (currentRoomsData) currentRoomsData.unshift(created);
     lastFetchTime = 0;
-    return created;
+    // devolvemos snapshot para quien lo necesite
+    return snapshotFromBase(created);
   }catch(err){
     console.error("Error createRoom:", err);
     return null;
@@ -153,7 +274,11 @@ function mapRoom(room){
   const t   = toNum(room.skinTemp, 35.5);
   const eda = toNum(room.sudoracion, 2.0);
 
-  const score = calculateAnxietyScore(hr, hrv, t, eda);
+  // score base calculado con dispositivos (sobre los valores de API)
+  const score = calculateAnxietyScoreWithDevices(
+    hr, hrv, t, eda,
+    { tipLuz: room.tipLuz, olores: room.olores, doorState: room.doorState }
+  );
   const lvl = anxietyLevel(score);
 
   return {
@@ -168,7 +293,7 @@ function mapRoom(room){
     date: room.date ?? null,
     doorState: normalizeDoorState(room.doorState),
     nombrePaciente: (room.nombrePaciente ?? `Paciente ${room.cuarto ?? ""}`).toString(),
-    olores: (room.olores ?? "").toString(),      // aroma seleccionado, vacío = inactivo
+    olores: (room.olores ?? "").toString(),
     anxietyScore: score,
     anxietyLevel: lvl
   };
